@@ -8,11 +8,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 
 from .models import *
-from .forms import OrderForm, CreateUserForm
+from .forms import OrderForm, CreateUserForm, CustomerForm
 from .filters import OrderFilter
 from .decoraters import unauthenticated_user, allowed_user, admin_only
 
 # Create your views here.
+
 
 @unauthenticated_user
 def registerPage(request):
@@ -24,19 +25,13 @@ def registerPage(request):
             user = form.save()
             username = form.cleaned_data.get('username')
 
-            group = Group.objects.get(name='customer')
-            user.groups.add(group)
-            Customer.objects.create(
-                user=user,
-                name=user.username,
-            )
-
             messages.success(request, 'Account was created for ' + username)
-            
+
             return redirect('login')
 
     context = {'form': form}
     return render(request, 'account/register.html', context)
+
 
 @unauthenticated_user
 def loginPage(request):
@@ -53,14 +48,14 @@ def loginPage(request):
         else:
             messages.info(request, 'Username or password is incorrect')
 
-
     context = {}
     return render(request, 'account/login.html', context)
 
 
 def logoutUser(request):
     logout(request)
-    return redirect('login') 
+    return redirect('login')
+
 
 @login_required(login_url='login')
 @admin_only
@@ -77,6 +72,7 @@ def home(request):
                'total_orders': total_orders, 'delivered': delivered, 'pending': pending}
     return render(request, 'account/dashboard.html', context)
 
+
 @login_required(login_url='login')
 @allowed_user(allowed=['customer'])
 def userPage(request):
@@ -85,8 +81,25 @@ def userPage(request):
     delivered = orders.filter(status='Delivered').count()
     pending = orders.filter(status='Pending').count()
 
-    context = {'orders':orders, 'total_orders': total_orders, 'delivered': delivered, 'pending': pending}
+    context = {'orders': orders, 'total_orders': total_orders,
+               'delivered': delivered, 'pending': pending}
     return render(request, 'account/user.html', context)
+
+
+@login_required(login_url='login')
+@allowed_user(allowed=['customer'])
+def accountSettings(request):
+    customer = request.user.customer
+    form = CustomerForm(instance=customer)
+
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, request.FILES, instance=customer)
+        if form.is_valid():
+            form.save()
+
+    context = {'form': form}
+    return render(request, 'account/account_settings.html', context)
+
 
 @login_required(login_url='login')
 @allowed_user(allowed=['admin'])
@@ -109,6 +122,7 @@ def customer(request, pk):
                'orders': orders, 'order_count': order_count, 'myFilter': myFilter}
     return render(request, 'account/customer.html', context)
 
+
 @login_required(login_url='login')
 @allowed_user(allowed=['admin'])
 def createOrder(request):
@@ -121,6 +135,7 @@ def createOrder(request):
 
     context = {'form': form}
     return render(request, 'account/order_form.html', context)
+
 
 @login_required(login_url='login')
 @allowed_user(allowed=['admin'])
@@ -136,6 +151,7 @@ def updateOrder(request, pk):
             return redirect('/')
     context = {'form': form}
     return render(request, 'account/order_form.html', context)
+
 
 @login_required(login_url='login')
 @allowed_user(allowed=['admin'])
